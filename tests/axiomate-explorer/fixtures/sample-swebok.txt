@@ -1,0 +1,5 @@
+Software Engineering is a type of Engineering Discipline.
+Requirements Engineering requires Stakeholder Analysis.
+Risk Management requires Mitigation Planning.
+Testing conflicts with Unverified Release.
+Architecture is related to Design.

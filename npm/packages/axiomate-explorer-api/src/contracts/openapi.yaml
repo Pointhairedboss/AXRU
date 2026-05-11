@@ -1,0 +1,494 @@
+openapi: 3.0.3
+info:
+  title: Axiomate Explorer API
+  version: 0.1.0
+  description: >-
+    First-pass API contract for Axiomate Explorer pipeline orchestration,
+    validation/repair, reasoning traces, and proof attestation.
+  x-contract-freeze:
+    phase: sprint-1
+    policy: additive-only
+    approvedBy:
+      - backend-lead
+      - frontend-lead
+      - rust-lead
+servers:
+  - url: /api/v1
+paths:
+  /sessions:
+    post:
+      summary: Create session
+      operationId: createSession
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+  /sessions/{sessionId}/documents:
+    post:
+      summary: Upload document
+      operationId: uploadDocument
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadDocumentRequest'
+      responses:
+        '201':
+          description: Document accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+  /sessions/{sessionId}/extract:
+    post:
+      summary: Run extraction stage
+      operationId: runExtract
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractRequest'
+      responses:
+        '202':
+          description: Extraction run started/completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRun'
+  /sessions/{sessionId}/graph:
+    get:
+      summary: Get current graph snapshot
+      operationId: getGraph
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Graph snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphSnapshot'
+  /sessions/{sessionId}/validate:
+    post:
+      summary: Validate current graph
+      operationId: runValidate
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+  /sessions/{sessionId}/repairs:
+    post:
+      summary: Apply repair action
+      operationId: applyRepair
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - in: header
+          name: X-Idempotency-Key
+          required: false
+          schema:
+            type: string
+          description: Optional idempotency key scoped to session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepairAction'
+      responses:
+        '200':
+          description: Repair applied and new run version available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRun'
+  /sessions/{sessionId}/traces:
+    get:
+      summary: List reasoning traces for current run
+      operationId: listTraces
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Trace entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traces:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trace'
+                required: [traces]
+  /sessions/{sessionId}/attest:
+    post:
+      summary: Generate attestation bundle
+      operationId: generateAttestation
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Attestation bundle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttestationBundle'
+  /attestations/verify:
+    post:
+      summary: Verify attestation bundle integrity
+      operationId: verifyAttestation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyAttestationRequest'
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyAttestationResponse'
+  /sessions/{sessionId}/export:
+    get:
+      summary: Export report or graph artifacts
+      operationId: exportArtifacts
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - in: query
+          name: format
+          required: true
+          schema:
+            type: string
+            enum: [json, txt, svg, ttl, cypher]
+          description: svg/ttl/cypher are feature-flagged in Sprint 1.
+      responses:
+        '200':
+          description: Export payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format:
+                    type: string
+                  artifact:
+                    type: string
+                  attestationId:
+                    type: string
+                required: [format, artifact]
+components:
+  parameters:
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+  schemas:
+    Session:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        createdAt:
+          type: string
+          format: date-time
+      required: [sessionId, status, createdAt]
+    Document:
+      type: object
+      properties:
+        documentId:
+          type: string
+        sessionId:
+          type: string
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+        parseStatus:
+          type: string
+          enum: [parsed, partial, failed]
+      required: [documentId, sessionId, filename, mediaType, parseStatus]
+    UploadDocumentRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        mediaType:
+          type: string
+          enum: [text/plain, text/markdown, application/pdf]
+        contentBase64:
+          type: string
+          description: Base64 encoded content for first-pass contract simplicity.
+      required: [filename, mediaType, contentBase64]
+    ExtractRequest:
+      type: object
+      properties:
+        maxConcepts:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        includeLowConfidence:
+          type: boolean
+          default: false
+    ValidateRequest:
+      type: object
+      properties:
+        rulesetId:
+          type: string
+          default: axiomate-mvp-v1
+        strictMode:
+          type: boolean
+          default: true
+    PipelineRun:
+      type: object
+      properties:
+        runId:
+          type: string
+        sessionId:
+          type: string
+        runVersion:
+          type: integer
+        stage:
+          type: string
+          enum: [extract, graph, validate, repair, attest, export]
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        diagnostics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Diagnostic'
+      required: [runId, sessionId, runVersion, stage, status]
+    RunStatus:
+      type: string
+      enum:
+        - created
+        - ingested
+        - extracted
+        - graph_built
+        - validated
+        - repair_pending
+        - valid
+        - attested
+        - exported
+        - failed
+    GraphSnapshot:
+      type: object
+      properties:
+        runId:
+          type: string
+        concepts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Concept'
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Relation'
+      required: [runId, concepts, relations]
+    Concept:
+      type: object
+      properties:
+        conceptId:
+          type: string
+        label:
+          type: string
+        domain:
+          type: string
+        depth:
+          type: integer
+        confidence:
+          type: number
+          format: float
+        evidenceIds:
+          type: array
+          items:
+            type: string
+      required: [conceptId, label, confidence, evidenceIds]
+    Relation:
+      type: object
+      properties:
+        relationId:
+          type: string
+        fromConceptId:
+          type: string
+        toConceptId:
+          type: string
+        type:
+          type: string
+          enum: [subsumes, requires, conflicts_with, related_to, equivalent_to]
+        confidence:
+          type: number
+          format: float
+        evidenceIds:
+          type: array
+          items:
+            type: string
+      required: [relationId, fromConceptId, toConceptId, type, confidence, evidenceIds]
+    ValidationReport:
+      type: object
+      properties:
+        runId:
+          type: string
+        overallStatus:
+          type: string
+          enum: [valid, repair_pending, failed]
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conflict'
+        suggestedRepairs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairAction'
+      required: [runId, overallStatus, conflicts, suggestedRepairs]
+    Conflict:
+      type: object
+      properties:
+        conflictId:
+          type: string
+        severity:
+          type: string
+          enum: [high, medium, low]
+        code:
+          type: string
+        message:
+          type: string
+        relatedIds:
+          type: array
+          items:
+            type: string
+      required: [conflictId, severity, code, message]
+    RepairAction:
+      type: object
+      properties:
+        actionId:
+          type: string
+        conflictId:
+          type: string
+        actionType:
+          type: string
+          enum: [merge_equivalence, reverse_edge, demote_relation, quarantine_relation, mark_resolved]
+        payload:
+          type: object
+          additionalProperties: true
+      required: [conflictId, actionType]
+    Trace:
+      type: object
+      properties:
+        traceId:
+          type: string
+        entityType:
+          type: string
+          enum: [concept, relation, validation]
+        entityId:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceStep'
+      required: [traceId, entityType, entityId, steps]
+    TraceStep:
+      type: object
+      properties:
+        index:
+          type: integer
+        ruleId:
+          type: string
+        operation:
+          type: string
+        inputEvidenceIds:
+          type: array
+          items:
+            type: string
+        beforeStateRef:
+          type: string
+        afterStateRef:
+          type: string
+        confidence:
+          type: number
+          format: float
+      required: [index, ruleId, operation, inputEvidenceIds, confidence]
+    AttestationBundle:
+      type: object
+      properties:
+        attestationId:
+          type: string
+        runId:
+          type: string
+        graphHash:
+          type: string
+        evidenceHash:
+          type: string
+        traceHash:
+          type: string
+        rulesetId:
+          type: string
+        validatorVersion:
+          type: string
+        signature:
+          type: string
+          nullable: true
+      required: [attestationId, runId, graphHash, evidenceHash, traceHash, rulesetId, validatorVersion]
+    VerifyAttestationRequest:
+      type: object
+      properties:
+        attestation:
+          $ref: '#/components/schemas/AttestationBundle'
+      required: [attestation]
+    VerifyAttestationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              passed:
+                type: boolean
+              detail:
+                type: string
+            required: [name, passed]
+      required: [valid, checks]
+    Diagnostic:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error]
+      required: [code, message, severity]

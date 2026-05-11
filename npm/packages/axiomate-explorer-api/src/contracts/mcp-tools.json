@@ -1,0 +1,245 @@
+{
+  "server": {
+    "name": "axiomate-explorer",
+    "version": "0.1.0"
+  },
+  "tools": [
+    {
+      "name": "axiomate.create_session",
+      "description": "Create a new explorer session.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "required": ["sessionId", "status"]
+      }
+    },
+    {
+      "name": "axiomate.upload_document",
+      "description": "Upload a source document to a session.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "filename": { "type": "string" },
+          "mediaType": {
+            "type": "string",
+            "enum": ["text/plain", "text/markdown", "application/pdf"]
+          },
+          "contentBase64": { "type": "string" }
+        },
+        "required": ["sessionId", "filename", "mediaType", "contentBase64"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "documentId": { "type": "string" },
+          "parseStatus": { "type": "string" }
+        },
+        "required": ["documentId", "parseStatus"]
+      }
+    },
+    {
+      "name": "axiomate.run_extract",
+      "description": "Extract concepts and relation candidates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "maxConcepts": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "includeLowConfidence": { "type": "boolean" }
+        },
+        "required": ["sessionId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "status": { "type": "string" },
+          "conceptCount": { "type": "integer" },
+          "relationCount": { "type": "integer" }
+        },
+        "required": ["runId", "status"]
+      }
+    },
+    {
+      "name": "axiomate.get_graph",
+      "description": "Get current graph snapshot for visualization.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" }
+        },
+        "required": ["sessionId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "concepts": { "type": "array", "items": { "type": "object" } },
+          "relations": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["runId", "concepts", "relations"]
+      }
+    },
+    {
+      "name": "axiomate.validate_graph",
+      "description": "Run symbolic validation and conflict detection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "rulesetId": { "type": "string" },
+          "strictMode": { "type": "boolean" }
+        },
+        "required": ["sessionId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "overallStatus": { "type": "string" },
+          "conflicts": { "type": "array", "items": { "type": "object" } },
+          "suggestedRepairs": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["runId", "overallStatus", "conflicts", "suggestedRepairs"]
+      }
+    },
+    {
+      "name": "axiomate.apply_repair",
+      "description": "Apply one repair action and produce a new run version.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "conflictId": { "type": "string" },
+          "actionType": {
+            "type": "string",
+            "enum": ["merge_equivalence", "reverse_edge", "demote_relation", "quarantine_relation", "mark_resolved"]
+          },
+          "payload": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["sessionId", "conflictId", "actionType"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string" },
+          "runVersion": { "type": "integer" },
+          "status": { "type": "string" }
+        },
+        "required": ["runId", "runVersion", "status"]
+      }
+    },
+    {
+      "name": "axiomate.get_traces",
+      "description": "Get reasoning trace entries for concepts and relations.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" }
+        },
+        "required": ["sessionId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "traces": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["traces"]
+      }
+    },
+    {
+      "name": "axiomate.generate_attestation",
+      "description": "Generate proof/attestation bundle for current run.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" }
+        },
+        "required": ["sessionId"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "attestationId": { "type": "string" },
+          "runId": { "type": "string" },
+          "graphHash": { "type": "string" },
+          "evidenceHash": { "type": "string" },
+          "traceHash": { "type": "string" }
+        },
+        "required": ["attestationId", "runId", "graphHash", "evidenceHash", "traceHash"]
+      }
+    },
+    {
+      "name": "axiomate.verify_attestation",
+      "description": "Verify attestation integrity and proof checks.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "attestation": { "type": "object" }
+        },
+        "required": ["attestation"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "valid": { "type": "boolean" },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "passed": { "type": "boolean" },
+                "detail": { "type": "string" }
+              },
+              "required": ["name", "passed"]
+            }
+          }
+        },
+        "required": ["valid", "checks"]
+      }
+    },
+    {
+      "name": "axiomate.export_artifact",
+      "description": "Export report or graph artifact with attestation reference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": { "type": "string" },
+          "format": {
+            "type": "string",
+            "enum": ["json", "txt", "svg", "ttl", "cypher"]
+          }
+        },
+        "required": ["sessionId", "format"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "format": { "type": "string" },
+          "artifact": { "type": "string" },
+          "attestationId": { "type": "string" }
+        },
+        "required": ["format", "artifact"]
+      }
+    }
+  ]
+}
