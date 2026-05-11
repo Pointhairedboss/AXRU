@@ -107,10 +107,12 @@ Status legend: `Aligned`, `Partial`, `Missing`
 3. `A11y Compliance Pass` checklist with unresolved gaps.
 4. `Implementation Cut Plan` (phaseable tickets for frontend engineer).
 
-## 9. Open Questions to Resolve During Follow-up Review
-1. Should global run timeline persist across browser refresh for a session?
-2. Should feature-flagged exports (`svg`, `ttl`, `cypher`) be shown disabled with explanation, or hidden?
-3. Should verify support both paste and file upload in MVP day one, or staged rollout?
+## 9. Locked Decisions for Follow-up Review
+1. Global run timeline must persist across hard refresh for the same `sessionId`.
+2. Feature-flagged exports (`svg`, `ttl`, `cypher`) must be visible but disabled, with explanatory lock state.
+3. Verify must support both pasted JSON and uploaded bundle file on day one.
+4. OpenAPI `0.1.0` remains additive-only with no breaking schema changes.
+5. Existing Node API (`/api/v1`) remains canonical for the current MVP implementation path.
 
 ## 10. Recommended Review Order
 1. Validate structural artifact format (split multi-document HTML issue first).
